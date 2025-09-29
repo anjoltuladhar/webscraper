@@ -3,160 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Scraper Frontend</title>
+    <title>Real-Time Link Scraper</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom font for a modern look */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        /* Custom font import */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7fafc; /* Light gray background */
+            background-color: #f7f9fb;
+        }
+        .container {
+            max-width: 900px;
         }
     </style>
 </head>
-<body class="min-h-screen p-4 sm:p-8">
-    <div class="max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 border border-gray-100">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">Web Scraper (Client-Side Concept)</h1>
-            <p class="text-gray-600">
-                This tool simulates the link extraction part of a web scraping script. In a real-world scenario, the scraping
-                would occur on a server (e.g., Python/BeautifulSoup) due to browser security restrictions.
+<body class="min-h-screen p-4 sm:p-8 flex justify-center">
+
+    <div class="container w-full">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-indigo-700">Real-Time Web Link Scraper</h1>
+            <p class="text-gray-500 mt-2">Enter a URL to scrape all links (A-tags) from the page's HTML.</p>
+            <p class="text-sm text-red-500 mt-1 font-semibold">
+                NOTE: This frontend requires the Python backend server (scraper.py) to be running locally to work.
             </p>
         </header>
 
-        <section class="mb-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <h2 class="text-xl font-semibold text-yellow-800 mb-2">Simulated Target HTML</h2>
-            <p class="text-sm text-yellow-700 mb-2">
-                We are pretending to scrape the following hardcoded HTML structure (which replaces the `requests.get()` call from Python).
-                Watch how we extract the 'href' and the text for the four links below.
-            </p>
-            <pre class="bg-yellow-100 p-3 rounded-lg text-xs overflow-x-auto text-yellow-900" id="mock-html-preview">
-                <!-- Content will be filled by JS for preview -->
-            </pre>
-        </section>
-
-        <!-- Action Button -->
-        <div class="flex justify-center mb-10">
-            <button id="scrapeButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50">
-                Start Link Extraction
-            </button>
+        <!-- Input and Control Panel -->
+        <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl transition-all duration-300">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="url" id="urlInput" placeholder="Enter a full URL (e.g., https://www.google.com)"
+                       class="flex-grow p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-gray-700 transition duration-150"
+                       value="https://www.ticketmaster.com.au">
+                
+                <button id="scrapeButton"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] disabled:bg-indigo-300 flex items-center justify-center">
+                    Scrape Links
+                    <svg id="loadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
 
-        <!-- Results Display -->
-        <section>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Extracted Links</h2>
-            <div id="resultsContainer" class="space-y-4">
-                <p class="text-gray-500 italic">Click the button above to begin the extraction process.</p>
+        <!-- Results Display Area -->
+        <div class="mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                Results <span id="linkCount" class="text-indigo-600">(0 links found)</span>
+            </h2>
+            <div id="resultsContainer" class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <p id="initialMessage" class="text-gray-400 italic">Enter a URL and click "Scrape Links" to begin.</p>
+                <ul id="linkList" class="space-y-2 hidden">
+                    <!-- Links will be injected here -->
+                </ul>
             </div>
-        </section>
-
+            
+            <!-- Download Button (Visible only after successful scrape) -->
+            <button id="downloadButton"
+                    class="mt-4 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-[1.01] active:scale-[0.99] disabled:bg-green-300 hidden"
+                    disabled>
+                Download Results as CSV
+            </button>
+        </div>
     </div>
 
     <script>
-        // --- Core JavaScript Logic ---
+        // --- Configuration ---
+        // !!! IMPORTANT: This URL must match where you run your Python Flask server.
+        // For local testing, use http://127.0.0.1:5000/scrape
+        const BACKEND_URL = 'http://127.0.0.1:5000/scrape'; 
 
+        // --- DOM Elements ---
+        const urlInput = document.getElementById('urlInput');
         const scrapeButton = document.getElementById('scrapeButton');
+        const downloadButton = document.getElementById('downloadButton');
         const resultsContainer = document.getElementById('resultsContainer');
-        const mockHtmlPreview = document.getElementById('mock-html-preview');
-        
-        // 1. HARDCODED MOCK HTML (Simulates the response from a real server request)
-        const MOCK_HTML_RESPONSE = `
-            <!DOCTYPE html>
-            <html>
-            <head><title>Scraped Document</title></head>
-            <body>
-                <h1>Project Alpha</h1>
-                <!-- This is a link we want -->
-                <a href="https://github.com/user/project-alpha">Project Source Code</a>
+        const linkList = document.getElementById('linkList');
+        const linkCountSpan = document.getElementById('linkCount');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const initialMessage = document.getElementById('initialMessage');
 
-                <nav>
-                    <!-- This is an internal link, also useful -->
-                    <a href="/documentation">Read the Docs</a>
-                    <!-- A link that is missing an href (should be handled safely) -->
-                    <a>Empty Link</a>
-                </nav>
+        // --- State Management ---
+        let lastScrapedLinks = [];
 
-                <p>Welcome to the project. Follow us on social media:</p>
+        // --- Event Listeners ---
+        scrapeButton.addEventListener('click', handleScrape);
+        downloadButton.addEventListener('click', downloadCSV);
 
-                <footer>
-                    <!-- This link is external and includes complex text -->
-                    <a href="https://twitter.com/dev_updates">
-                        <span class="icon">🐦</span>
-                        Twitter Updates
-                    </a>
-                </footer>
-            </body>
-            </html>
-        `;
+        // --- Helper Functions ---
 
-        // Display the mock HTML in the preview box
-        mockHtmlPreview.textContent = MOCK_HTML_RESPONSE.trim();
-
-
-        /**
-         * Simulates the scraping process using the DOMParser (equivalent to Beautiful Soup in the browser).
-         */
-        function scrapeLinks() {
-            resultsContainer.innerHTML = '<p class="text-indigo-600 font-semibold animate-pulse">Parsing HTML and extracting links...</p>';
-            scrapeButton.disabled = true;
-
-            // 2. DOMParser: The client-side equivalent of Beautiful Soup
-            // It turns the raw HTML string into a navigable DOM object.
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(MOCK_HTML_RESPONSE, 'text/html');
-
-            // 3. Find All Links: Equivalent to soup.find_all('a')
-            const allLinks = doc.querySelectorAll('a');
-
-            const extractedData = [];
-            
-            // 4. Iterate and Extract Data
-            allLinks.forEach((link, index) => {
-                // Equivalent to link.get('href') and link.text.strip()
-                const url = link.getAttribute('href');
-                const text = link.textContent.trim();
-
-                // 5. Filter for useful links (URL must exist)
-                if (url) {
-                    extractedData.push({
-                        id: index + 1,
-                        text: text || '[No visible link text]', // Handle cases where text is empty but the link exists
-                        url: url
-                    });
-                }
-            });
-
-            // 6. Display Results
-            renderResults(extractedData);
-            scrapeButton.disabled = false;
+        function setAppState(isLoading) {
+            scrapeButton.disabled = isLoading;
+            downloadButton.disabled = isLoading;
+            if (isLoading) {
+                scrapeButton.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Scraping...';
+                initialMessage.classList.add('hidden');
+                linkList.classList.add('hidden');
+                linkList.innerHTML = '';
+                linkCountSpan.textContent = '(Loading...)';
+                downloadButton.classList.add('hidden');
+            } else {
+                scrapeButton.innerHTML = 'Scrape Links';
+            }
         }
 
-        /**
-         * Renders the extracted link data into the UI.
-         * @param {Array<Object>} data The list of extracted link objects.
-         */
-        function renderResults(data) {
-            if (data.length === 0) {
-                resultsContainer.innerHTML = '<p class="text-red-500">No valid links (a tags with href attribute) were found.</p>';
+        async function handleScrape() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                // Use a custom message box instead of alert()
+                displayMessage("Please enter a valid URL.", 'error');
                 return;
             }
 
-            resultsContainer.innerHTML = `
-                <div class="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-                    ${data.map(item => `
-                        <div class="p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-100 transition duration-150">
-                            <span class="text-sm font-medium text-gray-900 block">${item.text}</span>
-                            <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-500 hover:text-indigo-700 truncate block">${item.url}</a>
-                        </div>
-                    `).join('')}
-                </div>
-                <p class="mt-4 text-sm text-gray-700 font-medium">Successfully extracted ${data.length} links.</p>
-            `;
+            setAppState(true);
+            lastScrapedLinks = []; // Clear previous results
+
+            try {
+                // Send the URL to the Python backend
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // Handle HTTP errors or backend application errors
+                    const errorMessage = data.error || `Server error: HTTP ${response.status}`;
+                    displayMessage(`Scraping Failed: ${errorMessage}`, 'error');
+                    linkCountSpan.textContent = '(0 links found)';
+                    setAppState(false);
+                    return;
+                }
+                
+                // Success: Display the links
+                lastScrapedLinks = data.links || [];
+                displayLinks(lastScrapedLinks);
+                
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                displayMessage(`Connection Error: Could not connect to backend server at ${BACKEND_URL}. Ensure scraper.py is running.`, 'error');
+                linkCountSpan.textContent = '(0 links found)';
+            }
+            
+            setAppState(false);
         }
 
-        // Attach event listener
-        scrapeButton.addEventListener('click', scrapeLinks);
+        function displayLinks(links) {
+            linkList.innerHTML = '';
+            linkCountSpan.textContent = `(${links.length} links found)`;
+            
+            if (links.length === 0) {
+                displayMessage("No links (`<a>` tags) were found on the page.", 'info');
+                downloadButton.classList.add('hidden');
+                return;
+            }
+
+            links.forEach(link => {
+                const li = document.createElement('li');
+                li.className = 'p-3 bg-white border border-gray-100 rounded-md shadow-sm hover:shadow-md transition duration-150 break-words';
+                
+                const textDiv = document.createElement('div');
+                textDiv.className = 'font-semibold text-gray-800';
+                textDiv.textContent = link.text || '[No Link Text]';
+
+                const urlDiv = document.createElement('a');
+                urlDiv.className = 'text-sm text-indigo-500 hover:underline';
+                urlDiv.href = link.url;
+                urlDiv.target = '_blank';
+                urlDiv.textContent = link.url;
+
+                li.appendChild(textDiv);
+                li.appendChild(urlDiv);
+                linkList.appendChild(li);
+            });
+
+            initialMessage.classList.add('hidden');
+            linkList.classList.remove('hidden');
+            downloadButton.classList.remove('hidden');
+            downloadButton.disabled = false;
+        }
+
+        function displayMessage(message, type) {
+            resultsContainer.innerHTML = ''; // Clear previous content
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.className = `p-4 rounded-lg font-medium ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
+            resultsContainer.appendChild(p);
+            downloadButton.classList.add('hidden');
+        }
+
+        function downloadCSV() {
+            if (lastScrapedLinks.length === 0) {
+                displayMessage("No data available to download.", 'error');
+                return;
+            }
+
+            // 1. Define the CSV header
+            let csvContent = "Link Text,URL\n";
+
+            // 2. Iterate over the links and create CSV rows
+            lastScrapedLinks.forEach(link => {
+                // Sanitize text: replace double quotes with single quotes, and wrap in double quotes
+                // to handle commas inside the text field.
+                const sanitizedText = `"${link.text.replace(/"/g, "'")}"`;
+                
+                // Ensure URL is not undefined
+                const url = link.url || '';
+                
+                csvContent += `${sanitizedText},${url}\n`;
+            });
+
+            // 3. Create a Blob and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'scraped_links.csv';
+            
+            // Append link to body, click it, and remove it
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
     </script>
 </body>
