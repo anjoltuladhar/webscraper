@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Scraper Frontend</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for a modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc; /* Light gray background */
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
+    <div class="max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 border border-gray-100">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Web Scraper (Client-Side Concept)</h1>
+            <p class="text-gray-600">
+                This tool simulates the link extraction part of a web scraping script. In a real-world scenario, the scraping
+                would occur on a server (e.g., Python/BeautifulSoup) due to browser security restrictions.
+            </p>
+        </header>
+
+        <section class="mb-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h2 class="text-xl font-semibold text-yellow-800 mb-2">Simulated Target HTML</h2>
+            <p class="text-sm text-yellow-700 mb-2">
+                We are pretending to scrape the following hardcoded HTML structure (which replaces the `requests.get()` call from Python).
+                Watch how we extract the 'href' and the text for the four links below.
+            </p>
+            <pre class="bg-yellow-100 p-3 rounded-lg text-xs overflow-x-auto text-yellow-900" id="mock-html-preview">
+                <!-- Content will be filled by JS for preview -->
+            </pre>
+        </section>
+
+        <!-- Action Button -->
+        <div class="flex justify-center mb-10">
+            <button id="scrapeButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50">
+                Start Link Extraction
+            </button>
+        </div>
+
+        <!-- Results Display -->
+        <section>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Extracted Links</h2>
+            <div id="resultsContainer" class="space-y-4">
+                <p class="text-gray-500 italic">Click the button above to begin the extraction process.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // --- Core JavaScript Logic ---
+
+        const scrapeButton = document.getElementById('scrapeButton');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const mockHtmlPreview = document.getElementById('mock-html-preview');
+        
+        // 1. HARDCODED MOCK HTML (Simulates the response from a real server request)
+        const MOCK_HTML_RESPONSE = `
+            <!DOCTYPE html>
+            <html>
+            <head><title>Scraped Document</title></head>
+            <body>
+                <h1>Project Alpha</h1>
+                <!-- This is a link we want -->
+                <a href="https://github.com/user/project-alpha">Project Source Code</a>
+
+                <nav>
+                    <!-- This is an internal link, also useful -->
+                    <a href="/documentation">Read the Docs</a>
+                    <!-- A link that is missing an href (should be handled safely) -->
+                    <a>Empty Link</a>
+                </nav>
+
+                <p>Welcome to the project. Follow us on social media:</p>
+
+                <footer>
+                    <!-- This link is external and includes complex text -->
+                    <a href="https://twitter.com/dev_updates">
+                        <span class="icon">🐦</span>
+                        Twitter Updates
+                    </a>
+                </footer>
+            </body>
+            </html>
+        `;
+
+        // Display the mock HTML in the preview box
+        mockHtmlPreview.textContent = MOCK_HTML_RESPONSE.trim();
+
+
+        /**
+         * Simulates the scraping process using the DOMParser (equivalent to Beautiful Soup in the browser).
+         */
+        function scrapeLinks() {
+            resultsContainer.innerHTML = '<p class="text-indigo-600 font-semibold animate-pulse">Parsing HTML and extracting links...</p>';
+            scrapeButton.disabled = true;
+
+            // 2. DOMParser: The client-side equivalent of Beautiful Soup
+            // It turns the raw HTML string into a navigable DOM object.
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(MOCK_HTML_RESPONSE, 'text/html');
+
+            // 3. Find All Links: Equivalent to soup.find_all('a')
+            const allLinks = doc.querySelectorAll('a');
+
+            const extractedData = [];
+            
+            // 4. Iterate and Extract Data
+            allLinks.forEach((link, index) => {
+                // Equivalent to link.get('href') and link.text.strip()
+                const url = link.getAttribute('href');
+                const text = link.textContent.trim();
+
+                // 5. Filter for useful links (URL must exist)
+                if (url) {
+                    extractedData.push({
+                        id: index + 1,
+                        text: text || '[No visible link text]', // Handle cases where text is empty but the link exists
+                        url: url
+                    });
+                }
+            });
+
+            // 6. Display Results
+            renderResults(extractedData);
+            scrapeButton.disabled = false;
+        }
+
+        /**
+         * Renders the extracted link data into the UI.
+         * @param {Array<Object>} data The list of extracted link objects.
+         */
+        function renderResults(data) {
+            if (data.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-red-500">No valid links (a tags with href attribute) were found.</p>';
+                return;
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                    ${data.map(item => `
+                        <div class="p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-100 transition duration-150">
+                            <span class="text-sm font-medium text-gray-900 block">${item.text}</span>
+                            <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-500 hover:text-indigo-700 truncate block">${item.url}</a>
+                        </div>
+                    `).join('')}
+                </div>
+                <p class="mt-4 text-sm text-gray-700 font-medium">Successfully extracted ${data.length} links.</p>
+            `;
+        }
+
+        // Attach event listener
+        scrapeButton.addEventListener('click', scrapeLinks);
+
+    </script>
+</body>
+</html>
